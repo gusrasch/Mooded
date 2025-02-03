@@ -1,12 +1,25 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("notificationSettingsData") private var notificationSettingsData: Data = try! JSONEncoder().encode(NotificationSettings(isEnabled: true, frequency: .twentyFourHours))
+    @AppStorage("notificationSettingsData") private var notificationSettingsData: Data = {
+        // Create default settings
+        let defaultSettings = NotificationSettings(isEnabled: true, frequency: .twentyFourHours)
+        // Encode them to Data, or return empty Data if encoding fails
+        return (try? JSONEncoder().encode(defaultSettings)) ?? Data()
+    }()
+    
     @State private var settings: NotificationSettings
     
     init() {
-        let initialSettings = try! JSONDecoder().decode(NotificationSettings.self, from: UserDefaults.standard.data(forKey: "notificationSettingsData") ?? Data())
-        _settings = State(initialValue: initialSettings)
+        // Safely decode settings or use defaults
+        let defaultSettings = NotificationSettings(isEnabled: true, frequency: .twentyFourHours)
+        
+        if let data = UserDefaults.standard.data(forKey: "notificationSettingsData"),
+           let decoded = try? JSONDecoder().decode(NotificationSettings.self, from: data) {
+            _settings = State(initialValue: decoded)
+        } else {
+            _settings = State(initialValue: defaultSettings)
+        }
     }
     
     var body: some View {
@@ -26,8 +39,10 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .onChange(of: settings) { newValue in
-                notificationSettingsData = try! JSONEncoder().encode(newValue)
-                NotificationManager.shared.scheduleNotifications(settings: newValue)
+                if let encoded = try? JSONEncoder().encode(newValue) {
+                    notificationSettingsData = encoded
+                    NotificationManager.shared.scheduleNotifications(settings: newValue)
+                }
             }
         }
     }

@@ -6,10 +6,19 @@ struct ContentView: View {
     
     var body: some View {
         TabView {
-            MoodHistoryView(moodStore: moodStore)
-                .tabItem {
-                    Label("History", systemImage: "chart.line.uptrend.xyaxis")
-                }
+            Button(action: {
+                showingMoodEntry = true
+            }) {
+                Text("Record Mood")
+                    .font(.title2)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .tabItem {
+                Label("Record", systemImage: "plus.circle.fill")
+            }
             
             SettingsView()
                 .tabItem {

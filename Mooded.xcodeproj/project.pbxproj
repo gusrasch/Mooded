@@ -29,9 +29,22 @@
 		D862C4412D515977008355A3 /* MoodedUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoodedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D862C4742D5164F6008355A3 /* Exceptions for "Mooded" folder in "Mooded" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Preview Content/Assets.xcassets",
+			);
+			target = D862C4262D515976008355A3 /* Mooded */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D862C4292D515976008355A3 /* Mooded */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D862C4742D5164F6008355A3 /* Exceptions for "Mooded" folder in "Mooded" target */,
+			);
 			path = Mooded;
 			sourceTree = "<group>";
 		};
