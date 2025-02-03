@@ -42,11 +42,11 @@ struct ContentView: View {
     
     private func moodColor(for rating: Int) -> Color {
         switch rating {
-        case 1: return .blue.opacity(0.8)  // Rainy
-        case 2: return .gray.opacity(0.8)  // Cloudy with rain
-        case 3: return .gray               // Cloudy
-        case 4: return .orange             // Partly sunny
-        case 5: return .yellow             // Sunny
+        case 1: return .indigo.opacity(0.8)      // Stormy
+        case 2: return .blue.opacity(0.5)        // Rainy
+        case 3: return .gray.opacity(0.8)        // Cloudy
+        case 4: return .yellow.opacity(0.8)      // Partly sunny
+        case 5: return .orange.opacity(0.8)      // Sunny
         default: return .gray
         }
     }
