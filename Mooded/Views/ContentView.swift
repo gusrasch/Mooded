@@ -16,6 +16,26 @@ struct ContentView: View {
         return Double(moodStore.moods.map(\.rating).reduce(0, +)) / Double(moodStore.moods.count)
     }
     
+    var currentStreak: Int {
+        guard !moodStore.moods.isEmpty else { return 0 }
+        
+        let calendar = Calendar.current
+        var currentDate = calendar.startOfDay(for: Date())
+        var streak = 0
+        
+        // Sort moods by date in descending order and group by day
+        let dailyMoods = Dictionary(grouping: moodStore.moods) { mood in
+            calendar.startOfDay(for: mood.timestamp)
+        }
+        
+        while dailyMoods[currentDate] != nil {
+            streak += 1
+            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
+        }
+        
+        return streak
+    }
+    
     var recentMoods: [Mood] {
         Array(moodStore.moods.suffix(7).reversed())
     }
@@ -107,7 +127,7 @@ struct ContentView: View {
                                     .font(.headline)
                                     .foregroundColor(.primary.opacity(0.8))
                                 
-                                HStack(spacing: 40) {
+                                HStack(spacing: 30) {
                                     VStack(spacing: 8) {
                                         Text("\(averageMood, specifier: "%.1f")")
                                             .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -120,6 +140,14 @@ struct ContentView: View {
                                         Text("\(moodStore.moods.count)")
                                             .font(.system(size: 32, weight: .bold, design: .rounded))
                                         Text("Entries")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    VStack(spacing: 8) {
+                                        Text("\(currentStreak)")
+                                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                                        Text("Day Streak")
                                             .font(.subheadline)
                                             .foregroundColor(.secondary)
                                     }
