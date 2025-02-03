@@ -49,7 +49,7 @@ struct ContentView: View {
                     VStack(spacing: 20) {
                         // Mood Entry Card
                         VStack(spacing: 16) {
-                            Text("How's your mood today?")
+                            Text("How are you feeling?")
                                 .font(.title2)
                                 .fontWeight(.medium)
                                 .foregroundColor(.primary.opacity(0.8))
