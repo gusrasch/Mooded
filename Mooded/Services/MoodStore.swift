@@ -13,6 +13,11 @@ class MoodStore: ObservableObject {
         save()
     }
     
+    func clearData() {
+        moods.removeAll()
+        UserDefaults.standard.removeObject(forKey: saveKey)
+    }
+    
     private func save() {
         if let encoded = try? JSONEncoder().encode(moods) {
             UserDefaults.standard.set(encoded, forKey: saveKey)

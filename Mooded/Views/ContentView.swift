@@ -134,7 +134,7 @@ struct ContentView: View {
                     Label("History", systemImage: "chart.bar.fill")
                 }
             
-            SettingsView()
+            SettingsView(moodStore: moodStore)
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }

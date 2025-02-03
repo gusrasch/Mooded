@@ -9,8 +9,11 @@ struct SettingsView: View {
     }()
     
     @State private var settings: NotificationSettings
+    @State private var showingClearConfirmation = false
+    @ObservedObject var moodStore: MoodStore
     
-    init() {
+    init(moodStore: MoodStore) {
+        self.moodStore = moodStore
         // Safely decode settings or use defaults
         let defaultSettings = NotificationSettings(isEnabled: true, frequency: .twentyFourHours)
         
@@ -36,6 +39,17 @@ struct SettingsView: View {
                         }
                     }
                 }
+                
+                Section {
+                    Button(role: .destructive) {
+                        showingClearConfirmation = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Clear All Data")
+                        }
+                    }
+                }
             }
             .navigationTitle("Settings")
             .onChange(of: settings) { newValue in
@@ -43,6 +57,18 @@ struct SettingsView: View {
                     notificationSettingsData = encoded
                     NotificationManager.shared.scheduleNotifications(settings: newValue)
                 }
+            }
+            .confirmationDialog(
+                "Are you sure you want to clear all mood data?",
+                isPresented: $showingClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Clear All Data", role: .destructive) {
+                    moodStore.clearData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This action cannot be undone.")
             }
         }
     }
