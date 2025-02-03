@@ -20,6 +20,11 @@ struct ContentView: View {
                 Label("Record", systemImage: "plus.circle.fill")
             }
             
+            MoodHistoryView(moodStore: moodStore)
+                .tabItem {
+                    Label("History", systemImage: "chart.bar.fill")
+                }
+            
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
