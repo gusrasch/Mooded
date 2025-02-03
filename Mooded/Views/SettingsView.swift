@@ -52,7 +52,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .onChange(of: settings) { newValue in
+            .onChange(of: settings) { _, newValue in
                 if let encoded = try? JSONEncoder().encode(newValue) {
                     notificationSettingsData = encoded
                     NotificationManager.shared.scheduleNotifications(settings: newValue)
