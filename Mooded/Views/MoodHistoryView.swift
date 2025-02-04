@@ -191,12 +191,7 @@ struct MoodHistoryView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Weather History")
-            .navigationBarItems(trailing:
-                ShareLink(
-                    item: CSVExporter.export(moods: moodStore.moods),
-                    preview: SharePreview("Mood History.csv")
-                )
-            )
+            .navigationBarItems(trailing: CSVExportButton(moods: moodStore.moods))
         }
     }
 }
