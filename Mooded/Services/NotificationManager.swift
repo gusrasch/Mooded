@@ -21,7 +21,7 @@ class NotificationManager {
         guard settings.isEnabled else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "Weather Check"
+        content.title = "Mood Check"
         content.body = "How are you feeling?"
         content.sound = .default
         
