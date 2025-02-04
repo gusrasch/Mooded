@@ -21,21 +21,25 @@ class NotificationManager {
         guard settings.isEnabled else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "Mood Check"
-        content.body = "How are you feeling right now?"
+        content.title = "Weather Check"
+        content.body = "How's your weather of mind right now?"
         content.sound = .default
         
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: settings.frequency.timeInterval,
-            repeats: true
-        )
+        // Get notification times
+        let times = settings.dailyNotificationTimes()
         
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: trigger
-        )
-        
-        UNUserNotificationCenter.current().add(request)
+        // Schedule each notification
+        for (index, time) in times.enumerated() {
+            let components = Calendar.current.dateComponents([.hour, .minute], from: time)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            
+            let request = UNNotificationRequest(
+                identifier: "weatherCheck_\(index)",
+                content: content,
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request)
+        }
     }
 }
