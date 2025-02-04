@@ -22,7 +22,7 @@ class NotificationManager {
         
         let content = UNMutableNotificationContent()
         content.title = "Weather Check"
-        content.body = "How's your weather of mind right now?"
+        content.body = "How are you feeling?"
         content.sound = .default
         
         // Get notification times
