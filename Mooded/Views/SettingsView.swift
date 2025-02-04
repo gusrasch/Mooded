@@ -10,6 +10,9 @@ struct SettingsView: View {
     
     @State private var settings: NotificationSettings
     @State private var showingClearConfirmation = false
+    @State private var showingAddTime = false
+    @State private var newTime = Date()
+    @State private var isEditing = false
     @ObservedObject var moodStore: MoodStore
     
     init(moodStore: MoodStore) {
@@ -26,32 +29,61 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Daily Weather Checks")) {
-                    Toggle("Enable Reminders", isOn: $settings.isEnabled)
-                    
-                    if settings.isEnabled {
-                        DatePicker("First Check",
-                                 selection: $settings.startTime,
-                                 displayedComponents: .hourAndMinute)
-                        
-                        DatePicker("Last Check",
-                                 selection: $settings.endTime,
-                                 displayedComponents: .hourAndMinute)
-                        
-                        Stepper("Number of checks: \(settings.notificationsPerDay)",
-                               value: $settings.notificationsPerDay,
-                               in: 1...6)
+                Section {
+                    Toggle("Enable Daily Reminders", isOn: $settings.isEnabled)
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    if settings.isEnabled && settings.scheduledTimes.isEmpty {
+                        Text("Add check-in times below")
                     }
                 }
                 
                 if settings.isEnabled {
-                    Section(header: Text("Scheduled Check Times")) {
-                        ForEach(settings.dailyNotificationTimes(), id: \.self) { time in
+                    Section {
+                        ForEach(settings.scheduledTimes.sorted(by: { $0.time < $1.time })) { time in
                             HStack {
                                 Image(systemName: "bell.fill")
                                     .foregroundColor(.blue)
                                     .font(.footnote)
-                                Text(time, style: .time)
+                                Text(time.time, style: .time)
+                                    .foregroundStyle(.primary)
+                                
+                                if isEditing {
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        if let index = settings.scheduledTimes.firstIndex(where: { $0.id == time.id }) {
+                                            settings.scheduledTimes.remove(at: index)
+                                            saveAndUpdateNotifications()
+                                        }
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Button(action: {
+                            showingAddTime = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Check-in Time")
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Daily Check-ins")
+                            Spacer()
+                            if !settings.scheduledTimes.isEmpty {
+                                Button(action: {
+                                    withAnimation {
+                                        isEditing.toggle()
+                                    }
+                                }) {
+                                    Text(isEditing ? "Done" : "Edit")
+                                }
                             }
                         }
                     }
@@ -69,11 +101,26 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .onChange(of: settings) { _, newValue in
-                if let encoded = try? JSONEncoder().encode(newValue) {
-                    notificationSettingsData = encoded
-                    NotificationManager.shared.scheduleNotifications(settings: newValue)
+            .sheet(isPresented: $showingAddTime) {
+                NavigationView {
+                    Form {
+                        DatePicker("Time", selection: $newTime, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .padding()
+                    }
+                    .navigationTitle("Add Check-in Time")
+                    .navigationBarItems(
+                        leading: Button("Cancel") {
+                            showingAddTime = false
+                        },
+                        trailing: Button("Add") {
+                            settings.scheduledTimes.append(NotificationTime(time: newTime))
+                            saveAndUpdateNotifications()
+                            showingAddTime = false
+                        }
+                    )
                 }
+                .presentationDetents([.height(300)])
             }
             .confirmationDialog(
                 "Are you sure you want to clear all mood data?",
@@ -87,6 +134,13 @@ struct SettingsView: View {
             } message: {
                 Text("This action cannot be undone.")
             }
+        }
+    }
+    
+    private func saveAndUpdateNotifications() {
+        if let encoded = try? JSONEncoder().encode(settings) {
+            notificationSettingsData = encoded
+            NotificationManager.shared.scheduleNotifications(settings: settings)
         }
     }
 }
