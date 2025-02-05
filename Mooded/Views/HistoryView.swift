@@ -130,39 +130,30 @@ struct HistoryView: View {
                             }
                         }
                         .frame(maxWidth: .infinity)
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.05), radius: 10)
-                    )
-                    .padding(.horizontal)
-                    
-                    // Trends Card
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Trends")
-                            .font(.headline)
-                            .foregroundColor(.primary.opacity(0.8))
                         
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(habitCompletionRate.sorted(by: { $0.value > $1.value }), id: \.key) { habit, rate in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(habit)
-                                        .font(.subheadline)
-                                    
-                                    GeometryReader { geometry in
-                                        HStack(spacing: 0) {
-                                            Rectangle()
-                                                .fill(Color.blue.opacity(0.3))
-                                                .frame(width: geometry.size.width * CGFloat(rate / 100))
-                                            
-                                            Text("\(Int(rate))%")
-                                                .font(.caption)
-                                                .padding(.leading, 8)
+                        if !habitCompletionRate.isEmpty {
+                            Divider()
+                                .padding(.vertical, 8)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(habitCompletionRate.sorted(by: { $0.value > $1.value }), id: \.key) { habit, rate in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(habit)
+                                            .font(.subheadline)
+                                        
+                                        GeometryReader { geometry in
+                                            HStack(spacing: 0) {
+                                                Rectangle()
+                                                    .fill(Color.blue.opacity(0.3))
+                                                    .frame(width: geometry.size.width * CGFloat(rate / 100))
+                                                
+                                                Text("\(Int(rate))%")
+                                                    .font(.caption)
+                                                    .padding(.leading, 8)
+                                            }
                                         }
+                                        .frame(height: 20)
                                     }
-                                    .frame(height: 20)
                                 }
                             }
                         }
