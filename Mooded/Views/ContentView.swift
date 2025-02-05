@@ -47,32 +47,26 @@ struct HomeView: View {
     @ObservedObject var habitStore: HabitStore
     @Binding var selectedRating: Int?
     
-    var averageMood: Double {
-        guard !moodStore.moods.isEmpty else { return 0 }
-        return Double(moodStore.moods.map(\.rating).reduce(0, +)) / Double(moodStore.moods.count)
-    }
-    
-    var currentStreak: Int {
-        guard !moodStore.moods.isEmpty else { return 0 }
-        
-        let calendar = Calendar.current
-        var currentDate = calendar.startOfDay(for: Date())
-        var streak = 0
-        
-        let dailyMoods = Dictionary(grouping: moodStore.moods) { mood in
-            calendar.startOfDay(for: mood.timestamp)
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                TimeDisplayCard()
+                
+                MoodEntryCard(
+                    selectedRating: $selectedRating,
+                    moodStore: moodStore,
+                    moodColor: moodColor,
+                    weatherIcon: weatherIcon
+                )
+                
+                if !habitStore.habits.isEmpty {
+                    DailyHabitsCard(habitStore: habitStore)
+                }
+
+            }
+            .padding()
         }
-        
-        while dailyMoods[currentDate] != nil {
-            streak += 1
-            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
-        }
-        
-        return streak
-    }
-    
-    var recentMoods: [Mood] {
-        Array(moodStore.moods.suffix(7).reversed())
+        .background(Color(.systemGroupedBackground))
     }
     
     private func moodColor(for rating: Int) -> Color {
@@ -95,41 +89,6 @@ struct HomeView: View {
         case 5: return "sun.max"
         default: return "cloud"
         }
-    }
-    
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                MoodEntryCard(
-                    selectedRating: $selectedRating,
-                    moodStore: moodStore,
-                    moodColor: moodColor,
-                    weatherIcon: weatherIcon
-                )
-                
-                if !habitStore.habits.isEmpty {
-                    DailyHabitsCard(habitStore: habitStore)
-                }
-                
-                if !moodStore.moods.isEmpty {
-                    MoodSummaryCard(
-                        averageMood: averageMood,
-                        moodCount: moodStore.moods.count,
-                        currentStreak: currentStreak
-                    )
-                    
-                    if !recentMoods.isEmpty {
-                        RecentMoodsCard(
-                            moods: recentMoods,
-                            moodColor: moodColor,
-                            weatherIcon: weatherIcon
-                        )
-                    }
-                }
-            }
-            .padding()
-        }
-        .background(Color(.systemGroupedBackground))
     }
 }
 
@@ -239,93 +198,80 @@ struct DailyHabitsCard: View {
     }
 }
 
-struct MoodSummaryCard: View {
-    let averageMood: Double
-    let moodCount: Int
-    let currentStreak: Int
+struct TimeDisplayCard: View {
+    @State private var currentTime = Date()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var pulseScale: CGFloat = 1.0
+    
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
+    
+    private let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d"
+        return formatter
+    }()
+    
+    private let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm"
+        return formatter
+    }()
+    
+    private let secondsFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "ss"
+        return formatter
+    }()
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Weather Report")
-                .font(.headline)
-                .foregroundColor(.primary.opacity(0.8))
-            
-            HStack(spacing: 30) {
-                VStack(spacing: 8) {
-                    Text("\(averageMood, specifier: "%.1f")")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                    Text("Average")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+        VStack(spacing: 8) {
+            GeometryReader { geometry in
+                VStack(spacing: 4) {
+                    Text(dateFormatter.string(from: currentTime))
+                        .font(.system(size: geometry.size.width * 0.13, weight: .medium, design: .rounded))
+                        .foregroundColor(.primary.opacity(0.7))
+                    
+                    Text(monthFormatter.string(from: currentTime))
+                        .font(.system(size: geometry.size.width * 0.11, weight: .medium, design: .rounded))
+                        .foregroundColor(.primary.opacity(0.6))
+                    
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text(timeFormatter.string(from: currentTime))
+                            .font(.system(size: geometry.size.width * 0.25, weight: .light, design: .rounded))
+                            .foregroundColor(.primary.opacity(0.8))
+                            .scaleEffect(pulseScale)
+                        
+                        Text(secondsFormatter.string(from: currentTime))
+                            .font(.system(size: geometry.size.width * 0.08, weight: .light, design: .rounded))
+                            .foregroundColor(.primary.opacity(0.4))
+                            .offset(y: -geometry.size.width * 0.05)
+                    }
                 }
-                
-                VStack(spacing: 8) {
-                    Text("\(moodCount)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                    Text("Entries")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                VStack(spacing: 8) {
-                    Text("\(currentStreak)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                    Text("Day Streak")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(height: UIScreen.main.bounds.height * 0.30)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 30)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 15, x: 0, y: 5)
+        )
+        .padding(.horizontal)
+        .onReceive(timer) { input in
+            currentTime = input
+            withAnimation(.easeInOut(duration: 1.5)) {
+                pulseScale = 1.01
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                    withAnimation(.easeInOut(duration: 1.5)) {
+                        pulseScale = 1.0
+                    }
                 }
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        )
-    }
-}
-
-struct RecentMoodsCard: View {
-    let moods: [Mood]
-    let moodColor: (Int) -> Color
-    let weatherIcon: (Int) -> String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Recent Weather")
-                .font(.headline)
-                .foregroundColor(.primary.opacity(0.8))
-            
-            ForEach(moods) { mood in
-                HStack {
-                    Image(systemName: weatherIcon(mood.rating))
-                        .foregroundColor(moodColor(mood.rating))
-                        .font(.system(size: 20))
-                    
-                    Text(mood.timestamp, style: .relative)
-                        .foregroundColor(.secondary)
-                        .font(.subheadline)
-                    
-                    Spacer()
-                    
-                    Text("\(mood.rating)")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary.opacity(0.8))
-                }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
-                )
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        )
     }
 }
