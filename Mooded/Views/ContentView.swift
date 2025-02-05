@@ -248,7 +248,6 @@ struct ContentView: View {
                     .padding()
                 }
                 .background(Color(.systemGroupedBackground))
-                .navigationTitle("Weather of Mind")
             }
             .tabItem {
                 Label("Today", systemImage: "cloud.sun.fill")
