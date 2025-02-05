@@ -13,36 +13,44 @@ struct HistoryView: View {
         case all = "All Time"
     }
     
-    private var filteredMoods: [Mood] {
-        let calendar = Calendar.current
-        let date = calendar.startOfDay(for: Date())
+    // Combined type to represent any activity
+    enum Activity: Identifiable {
+        case mood(Mood)
+        case habitCompletion(habit: Habit, completion: HabitCompletion)
         
-        let filtered: [Mood]
-        switch timeRange {
-        case .week:
-            let filterDate = calendar.date(byAdding: .day, value: -7, to: date)!
-            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
-        case .month:
-            let filterDate = calendar.date(byAdding: .month, value: -1, to: date)!
-            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
-        case .year:
-            let filterDate = calendar.date(byAdding: .year, value: -1, to: date)!
-            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
-        case .all:
-            filtered = moodStore.moods
+        var id: String {
+            switch self {
+            case .mood(let mood): return "mood-\(mood.id)"
+            case .habitCompletion(_, let completion): return "habit-\(completion.id)"
+            }
         }
         
-        return filtered.sorted { $0.timestamp > $1.timestamp }
+        var timestamp: Date {
+            switch self {
+            case .mood(let mood): return mood.timestamp
+            case .habitCompletion(_, let completion): return completion.date
+            }
+        }
     }
     
-    private var filteredHabitCompletions: [(habit: Habit, completions: [HabitCompletion])] {
-        habitStore.habits.map { habit in
-            let completions = habitStore.completions.filter { completion in
-                completion.habitId == habit.id &&
-                (timeRange == .all || completion.date >= getFilterDate())
-            }.sorted { $0.date > $1.date }
-            return (habit, completions)
+    private var filteredActivities: [Activity] {
+        let filterDate = getFilterDate()
+        
+        // Convert moods to activities
+        let moodActivities = moodStore.moods
+            .filter { $0.timestamp >= filterDate }
+            .map { Activity.mood($0) }
+        
+        // Convert habit completions to activities
+        let habitActivities = habitStore.habits.flatMap { habit in
+            habitStore.completions
+                .filter { $0.habitId == habit.id && $0.date >= filterDate }
+                .map { Activity.habitCompletion(habit: habit, completion: $0) }
         }
+        
+        // Combine and sort all activities
+        return (moodActivities + habitActivities)
+            .sorted { $0.timestamp > $1.timestamp }
     }
     
     private func getFilterDate() -> Date {
@@ -61,6 +69,10 @@ struct HistoryView: View {
         }
     }
     
+    private var filteredMoods: [Mood] {
+        moodStore.moods.filter { $0.timestamp >= getFilterDate() }
+    }
+    
     private var averageMood: Double {
         guard !filteredMoods.isEmpty else { return 0 }
         return Double(filteredMoods.map(\.rating).reduce(0, +)) / Double(filteredMoods.count)
@@ -71,9 +83,11 @@ struct HistoryView: View {
         let calendar = Calendar.current
         let totalDays = max(1, calendar.dateComponents([.day], from: getFilterDate(), to: Date()).day ?? 1)
         
-        for (habit, completions) in filteredHabitCompletions {
-            let completionCount = completions.count
-            rates[habit.name] = (Double(completionCount) / Double(totalDays)) * 100
+        for habit in habitStore.habits {
+            let completions = habitStore.completions.filter {
+                $0.habitId == habit.id && $0.date >= getFilterDate()
+            }
+            rates[habit.name] = (Double(completions.count) / Double(totalDays)) * 100
         }
         return rates
     }
@@ -181,51 +195,34 @@ struct HistoryView: View {
                             .foregroundColor(.primary.opacity(0.8))
                         
                         LazyVStack(spacing: 8, pinnedViews: []) {
-                            ForEach(filteredMoods) { mood in
+                            ForEach(filteredActivities) { activity in
                                 HStack {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: weatherIcon(for: mood.rating))
-                                            .font(.system(size: 20))
-                                        Text("\(mood.rating)")
-                                            .font(.system(size: 16, weight: .medium))
-                                    }
-                                    .foregroundColor(moodColor(for: Double(mood.rating)))
-                                    
-                                    Spacer()
-                                    
-                                    VStack(alignment: .trailing) {
-                                        Text(mood.timestamp, style: .date)
-                                            .font(.subheadline)
-                                        Text(mood.timestamp, style: .time)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                                
-                                Divider()
-                            }
-                            
-                            ForEach(filteredHabitCompletions.flatMap { habit, completions in
-                                completions.map { completion in
-                                    (habit.name, completion)
-                                }
-                            }.sorted(by: { $0.1.date > $1.1.date }), id: \.1.id) { habitName, completion in
-                                HStack {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.green)
-                                        Text(habitName)
-                                            .font(.subheadline)
+                                    switch activity {
+                                    case .mood(let mood):
+                                        HStack(spacing: 4) {
+                                            Image(systemName: weatherIcon(for: mood.rating))
+                                                .font(.system(size: 20))
+                                            Text("\(mood.rating)")
+                                                .font(.system(size: 16, weight: .medium))
+                                        }
+                                        .foregroundColor(moodColor(for: Double(mood.rating)))
+                                        
+                                    case .habitCompletion(let habit, _):
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(.green)
+                                            Text(habit.name)
+                                                .font(.subheadline)
+                                        }
                                     }
                                     
                                     Spacer()
                                     
                                     VStack(alignment: .trailing) {
-                                        Text(completion.date, style: .date)
+                                        Text(activity.timestamp, style: .date)
                                             .font(.subheadline)
-                                        Text(completion.date, style: .time)
+                                        Text(activity.timestamp, style: .time)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
