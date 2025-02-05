@@ -163,29 +163,7 @@ struct DailyHabitsCard: View {
             
             VStack(spacing: 12) {
                 ForEach(habitStore.habits) { habit in
-                    HStack {
-                        Text(habit.name)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            withAnimation {
-                                habitStore.toggleCompletion(habitId: habit.id)
-                            }
-                        }) {
-                            Image(systemName: habitStore.isHabitCompleted(habitId: habit.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(habitStore.isHabitCompleted(habitId: habit.id) ? .green : .gray)
-                                .font(.system(size: 24))
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
-                    )
+                    HabitRow(habit: habit, habitStore: habitStore)
                 }
             }
         }
@@ -194,6 +172,69 @@ struct DailyHabitsCard: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+        )
+    }
+}
+
+struct HabitRow: View {
+    let habit: Habit
+    @ObservedObject var habitStore: HabitStore
+    @State private var isPressed = false
+    @State private var animationAmount: CGFloat = 1.0
+    
+    var body: some View {
+        HStack {
+            Text(habit.name)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Button(action: {
+                let impact = UIImpactFeedbackGenerator(style: .soft)
+                impact.prepare()
+                
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0.8)) {
+                    habitStore.toggleCompletion(habitId: habit.id)
+                    isPressed = true
+                    animationAmount = 1.2
+                }
+                
+                impact.impactOccurred()
+                
+                // Reset animation state
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.4, blendDuration: 0.8)) {
+                    isPressed = false
+                    animationAmount = 1.0
+                }
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(habitStore.isHabitCompleted(habitId: habit.id) ? Color.green : Color.gray.opacity(0.2))
+                        .frame(width: 32, height: 32)
+                    
+                    if habitStore.isHabitCompleted(habitId: habit.id) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .scaleEffect(animationAmount)
+                .overlay(
+                    Circle()
+                        .stroke(habitStore.isHabitCompleted(habitId: habit.id) ? Color.green : Color.clear, lineWidth: 2)
+                        .scaleEffect(isPressed ? 1.2 : 1.0)
+                        .opacity(isPressed ? 0.0 : 1.0)
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
         )
     }
 }
