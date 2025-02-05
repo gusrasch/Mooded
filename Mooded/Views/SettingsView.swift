@@ -11,12 +11,16 @@ struct SettingsView: View {
     @State private var settings: NotificationSettings
     @State private var showingClearConfirmation = false
     @State private var showingAddTime = false
+    @State private var showingAddHabit = false
     @State private var newTime = Date()
     @State private var isEditing = false
+    @State private var editingHabit: Habit?
     @ObservedObject var moodStore: MoodStore
+    @ObservedObject var habitStore: HabitStore
     
-    init(moodStore: MoodStore) {
+    init(moodStore: MoodStore, habitStore: HabitStore) {
         self.moodStore = moodStore
+        self.habitStore = habitStore
         
         if let data = UserDefaults.standard.data(forKey: "notificationSettingsData"),
            let decoded = try? JSONDecoder().decode(NotificationSettings.self, from: data) {
@@ -32,7 +36,7 @@ struct SettingsView: View {
                 Section {
                     Toggle("Enable Daily Reminders", isOn: $settings.isEnabled)
                 } header: {
-                    Text("Notifications")
+                    Text("Weather Check Notifications")
                 } footer: {
                     if settings.isEnabled && settings.scheduledTimes.isEmpty {
                         Text("Add check-in times below")
@@ -90,6 +94,52 @@ struct SettingsView: View {
                 }
                 
                 Section {
+                    ForEach(habitStore.habits) { habit in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(habit.name)
+                                if let time = habit.notificationTime {
+                                    Text(time, style: .time)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                editingHabit = habit
+                                showingAddHabit = true
+                            }) {
+                                Image(systemName: "pencil")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .onDelete { indexSet in
+                        indexSet.forEach { index in
+                            habitStore.removeHabit(habitStore.habits[index])
+                        }
+                    }
+                    
+                    if habitStore.habits.count < 4 {
+                        Button(action: {
+                            editingHabit = nil
+                            showingAddHabit = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Daily Habit")
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Daily Habits")
+                } footer: {
+                    Text("You can add up to 4 daily habits")
+                }
+                
+                Section {
                     Button(role: .destructive) {
                         showingClearConfirmation = true
                     } label: {
@@ -122,13 +172,17 @@ struct SettingsView: View {
                 }
                 .presentationDetents([.height(300)])
             }
+            .sheet(isPresented: $showingAddHabit) {
+                AddHabitView(habitStore: habitStore, habit: editingHabit, isPresented: $showingAddHabit)
+            }
             .confirmationDialog(
-                "Are you sure you want to clear all mood data?",
+                "Are you sure you want to clear all data?",
                 isPresented: $showingClearConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Clear All Data", role: .destructive) {
                     moodStore.clearData()
+                    habitStore.clearAll()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {

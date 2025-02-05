@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var moodStore = MoodStore()
+    @StateObject private var habitStore = HabitStore()
     @State private var selectedRating: Int?
     @Environment(\.colorScheme) var colorScheme
     
@@ -120,6 +121,49 @@ struct ContentView: View {
                                 .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
                         )
                         
+                        // Daily Habits Card
+                        if !habitStore.habits.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Daily Habits")
+                                    .font(.headline)
+                                    .foregroundColor(.primary.opacity(0.8))
+                                
+                                VStack(spacing: 12) {
+                                    ForEach(habitStore.habits) { habit in
+                                        HStack {
+                                            Text(habit.name)
+                                                .foregroundColor(.primary)
+                                            
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                withAnimation {
+                                                    habitStore.toggleCompletion(habitId: habit.id)
+                                                }
+                                            }) {
+                                                Image(systemName: habitStore.isHabitCompleted(habitId: habit.id) ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(habitStore.isHabitCompleted(habitId: habit.id) ? .green : .gray)
+                                                    .font(.system(size: 24))
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(Color(.systemBackground))
+                                                .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
+                                        )
+                                    }
+                                }
+                            }
+                            .padding(20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            )
+                        }
+                        
                         if !moodStore.moods.isEmpty {
                             // Mood Summary Card
                             VStack(alignment: .leading, spacing: 16) {
@@ -215,7 +259,7 @@ struct ContentView: View {
                     Label("History", systemImage: "calendar")
                 }
             
-            SettingsView(moodStore: moodStore)
+            SettingsView(moodStore: moodStore, habitStore: habitStore)
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
