@@ -10,31 +10,37 @@ struct HistoryView: View {
         case week = "Week"
         case month = "Month"
         case year = "Year"
+        case all = "All Time"
     }
     
     private var filteredMoods: [Mood] {
         let calendar = Calendar.current
         let date = calendar.startOfDay(for: Date())
-        let filterDate: Date
         
+        let filtered: [Mood]
         switch timeRange {
         case .week:
-            filterDate = calendar.date(byAdding: .day, value: -7, to: date)!
+            let filterDate = calendar.date(byAdding: .day, value: -7, to: date)!
+            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
         case .month:
-            filterDate = calendar.date(byAdding: .month, value: -1, to: date)!
+            let filterDate = calendar.date(byAdding: .month, value: -1, to: date)!
+            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
         case .year:
-            filterDate = calendar.date(byAdding: .year, value: -1, to: date)!
+            let filterDate = calendar.date(byAdding: .year, value: -1, to: date)!
+            filtered = moodStore.moods.filter { $0.timestamp >= filterDate }
+        case .all:
+            filtered = moodStore.moods
         }
         
-        return moodStore.moods.filter { $0.timestamp >= filterDate }
+        return filtered.sorted { $0.timestamp > $1.timestamp }
     }
     
     private var filteredHabitCompletions: [(habit: Habit, completions: [HabitCompletion])] {
         habitStore.habits.map { habit in
             let completions = habitStore.completions.filter { completion in
                 completion.habitId == habit.id &&
-                completion.date >= getFilterDate()
-            }
+                (timeRange == .all || completion.date >= getFilterDate())
+            }.sorted { $0.date > $1.date }
             return (habit, completions)
         }
     }
@@ -50,6 +56,8 @@ struct HistoryView: View {
             return calendar.date(byAdding: .month, value: -1, to: date)!
         case .year:
             return calendar.date(byAdding: .year, value: -1, to: date)!
+        case .all:
+            return Date.distantPast
         }
     }
     
@@ -61,7 +69,7 @@ struct HistoryView: View {
     private var habitCompletionRate: [String: Double] {
         var rates: [String: Double] = [:]
         let calendar = Calendar.current
-        let totalDays = calendar.dateComponents([.day], from: getFilterDate(), to: Date()).day ?? 1
+        let totalDays = max(1, calendar.dateComponents([.day], from: getFilterDate(), to: Date()).day ?? 1)
         
         for (habit, completions) in filteredHabitCompletions {
             let completionCount = completions.count
@@ -166,55 +174,66 @@ struct HistoryView: View {
                     )
                     .padding(.horizontal)
                     
-                    // Log Card
+                    // Activity Log
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Activity Log")
                             .font(.headline)
                             .foregroundColor(.primary.opacity(0.8))
                         
-                        ForEach(filteredMoods.prefix(5)) { mood in
-                            HStack {
-                                HStack(spacing: 4) {
-                                    Image(systemName: weatherIcon(for: mood.rating))
-                                        .font(.system(size: 20))
-                                    Text("\(mood.rating)")
-                                        .font(.system(size: 16, weight: .medium))
+                        LazyVStack(spacing: 8, pinnedViews: []) {
+                            ForEach(filteredMoods) { mood in
+                                HStack {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: weatherIcon(for: mood.rating))
+                                            .font(.system(size: 20))
+                                        Text("\(mood.rating)")
+                                            .font(.system(size: 16, weight: .medium))
+                                    }
+                                    .foregroundColor(moodColor(for: Double(mood.rating)))
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .trailing) {
+                                        Text(mood.timestamp, style: .date)
+                                            .font(.subheadline)
+                                        Text(mood.timestamp, style: .time)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
-                                .foregroundColor(moodColor(for: Double(mood.rating)))
+                                .padding(.vertical, 8)
                                 
-                                Spacer()
-                                
-                                VStack(alignment: .trailing) {
-                                    Text(mood.timestamp, style: .date)
-                                        .font(.subheadline)
-                                    Text(mood.timestamp, style: .time)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                Divider()
+                            }
+                            
+                            ForEach(filteredHabitCompletions.flatMap { habit, completions in
+                                completions.map { completion in
+                                    (habit.name, completion)
                                 }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        
-                        ForEach(filteredHabitCompletions.flatMap { habit, completions in
-                            completions.prefix(3).map { completion in
-                                (habit.name, completion)
-                            }
-                        }, id: \.1.id) { habitName, completion in
-                            HStack {
-                                Text(habitName)
-                                    .font(.subheadline)
-                                
-                                Spacer()
-                                
-                                VStack(alignment: .trailing) {
-                                    Text(completion.date, style: .date)
-                                        .font(.subheadline)
-                                    Text(completion.date, style: .time)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                            }.sorted(by: { $0.1.date > $1.1.date }), id: \.1.id) { habitName, completion in
+                                HStack {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.green)
+                                        Text(habitName)
+                                            .font(.subheadline)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .trailing) {
+                                        Text(completion.date, style: .date)
+                                            .font(.subheadline)
+                                        Text(completion.date, style: .time)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
+                                .padding(.vertical, 8)
+                                
+                                Divider()
                             }
-                            .padding(.vertical, 8)
                         }
                     }
                     .padding(20)
