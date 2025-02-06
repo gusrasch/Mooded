@@ -5,12 +5,12 @@ struct HistoryView: View {
     @ObservedObject var moodStore: MoodStore
     @ObservedObject var habitStore: HabitStore
     @State private var timeRange: TimeRange = .week
+    @State private var selectedHabit: Habit?
     
     enum TimeRange: String, CaseIterable {
         case week = "Week"
         case month = "Month"
         case year = "Year"
-        case all = "All Time"
     }
     
     // Combined type to represent any activity
@@ -33,22 +33,106 @@ struct HistoryView: View {
         }
     }
     
+    // Data point for trend visualization
+    struct TrendPoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let moodRating: Double
+        let habitCompletions: Int
+        let totalHabits: Int
+    }
+    
+    private var trendData: [TrendPoint] {
+        let calendar = Calendar.current
+        let startDate = getFilterDate()
+        let endDate = Date()
+        
+        // For year view, aggregate by month
+        if timeRange == .year {
+            var points: [TrendPoint] = []
+            var currentDate = startDate
+            
+            while currentDate <= endDate {
+                let monthStart = calendar.startOfDay(for: currentDate)
+                guard let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else { break }
+                
+                // Get moods for the month
+                let monthMoods = moodStore.moods.filter { mood in
+                    (monthStart...monthEnd).contains(mood.timestamp)
+                }
+                
+                let averageMood = monthMoods.isEmpty ? 0 :
+                    Double(monthMoods.map(\.rating).reduce(0, +)) / Double(monthMoods.count)
+                
+                // Get habit completions for the month
+                let completions = habitStore.completions.filter { completion in
+                    (monthStart...monthEnd).contains(completion.date)
+                }
+                
+                // Calculate average daily completions for the month
+                let daysInMonth = calendar.dateComponents([.day], from: monthStart, to: min(monthEnd, endDate)).day ?? 1
+                let averageCompletions = completions.count / max(1, daysInMonth)
+                
+                points.append(TrendPoint(
+                    date: currentDate,
+                    moodRating: averageMood,
+                    habitCompletions: averageCompletions,
+                    totalHabits: habitStore.habits.count
+                ))
+                
+                currentDate = monthEnd
+            }
+            
+            return points
+            
+        } else {
+            // For week and month views, keep daily data
+            var points: [TrendPoint] = []
+            var currentDate = startDate
+            
+            while currentDate <= endDate {
+                let dayStart = calendar.startOfDay(for: currentDate)
+                let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+                
+                // Get moods for the day
+                let dayMoods = moodStore.moods.filter { mood in
+                    (dayStart...dayEnd).contains(mood.timestamp)
+                }
+                let averageMood = dayMoods.isEmpty ? 0 :
+                    Double(dayMoods.map(\.rating).reduce(0, +)) / Double(dayMoods.count)
+                
+                // Get habit completions for the day
+                let completions = habitStore.completions.filter { completion in
+                    (dayStart...dayEnd).contains(completion.date)
+                }.count
+                
+                points.append(TrendPoint(
+                    date: currentDate,
+                    moodRating: averageMood,
+                    habitCompletions: completions,
+                    totalHabits: habitStore.habits.count
+                ))
+                
+                currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+            }
+            
+            return points
+        }
+    }
+    
     private var filteredActivities: [Activity] {
         let filterDate = getFilterDate()
         
-        // Convert moods to activities
         let moodActivities = moodStore.moods
             .filter { $0.timestamp >= filterDate }
             .map { Activity.mood($0) }
         
-        // Convert habit completions to activities
         let habitActivities = habitStore.habits.flatMap { habit in
             habitStore.completions
                 .filter { $0.habitId == habit.id && $0.date >= filterDate }
                 .map { Activity.habitCompletion(habit: habit, completion: $0) }
         }
         
-        // Combine and sort all activities
         return (moodActivities + habitActivities)
             .sorted { $0.timestamp > $1.timestamp }
     }
@@ -64,8 +148,6 @@ struct HistoryView: View {
             return calendar.date(byAdding: .month, value: -1, to: date)!
         case .year:
             return calendar.date(byAdding: .year, value: -1, to: date)!
-        case .all:
-            return Date.distantPast
         }
     }
     
@@ -102,6 +184,34 @@ struct HistoryView: View {
         }
     }
     
+    private func getAxisLabel(for date: Date) -> Text {
+        let calendar = Calendar.current
+        let day = calendar.component(.day, from: date)
+        let isFirstDay = day == 1
+        let isFirstDate = date == trendData.first?.date
+        
+        switch timeRange {
+        case .week:
+            return Text(date, format: .dateTime.weekday(.abbreviated))
+        case .month:
+            if isFirstDay || isFirstDate {
+                return Text(date, format: .dateTime.month(.abbreviated))
+            } else if day % 5 == 0 {
+                return Text("\(day)")
+            }
+            return Text("")
+        case .year:
+            return Text(date, format: .dateTime.month(.abbreviated))
+        }
+    }
+    
+    private func getBarColor(habitCompletions: Int, totalHabits: Int) -> Color {
+        if habitCompletions > 0 {
+            return Color.blue.opacity(Double(habitCompletions) / Double(totalHabits))
+        }
+        return Color.gray.opacity(0.3)
+    }
+
     private func weatherIcon(for rating: Int) -> String {
         switch rating {
         case 1: return "cloud.heavyrain"
@@ -124,6 +234,49 @@ struct HistoryView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    
+                    // Trend Chart
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Trends")
+                            .font(.headline)
+                            .foregroundColor(.primary.opacity(0.8))
+                        
+                        Chart(trendData) { point in
+                            BarMark(
+                                x: .value("Date", point.date),
+                                y: .value("Mood", point.moodRating)
+                            )
+                            .foregroundStyle(getBarColor(habitCompletions: point.habitCompletions, totalHabits: point.totalHabits))
+                        }
+                        .chartXAxis {
+                            AxisMarks(preset: .aligned) { value in
+                                if let date = value.as(Date.self) {
+                                    AxisValueLabel {
+                                        getAxisLabel(for: date)
+                                    }
+                                }
+                            }
+                        }
+                        .chartYAxis {
+                            AxisMarks(values: [1, 2, 3, 4, 5]) { value in
+                                AxisGridLine()
+                                AxisTick()
+                                AxisValueLabel {
+                                    Text("\(value.as(Int.self) ?? 0)")
+                                }
+                            }
+                        }
+                        .chartYScale(domain: 0...5)
+                        .frame(height: 200)
+
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(.systemBackground))
+                            .shadow(color: .black.opacity(0.05), radius: 10)
+                    )
                     .padding(.horizontal)
                     
                     // Summary Card
@@ -166,7 +319,7 @@ struct HistoryView: View {
                                         GeometryReader { geometry in
                                             HStack(spacing: 0) {
                                                 Rectangle()
-                                                    .fill(Color.blue.opacity(0.3))
+                                                    .fill(Color.blue.opacity(max((Double(rate) / 100), 0.2)))
                                                     .frame(width: geometry.size.width * CGFloat(rate / 100))
                                                 
                                                 Text("\(Int(rate))%")
