@@ -90,7 +90,7 @@ class HabitStore: ObservableObject {
         
         let content = UNMutableNotificationContent()
         content.title = "Habit Reminder"
-        content.body = "Time to complete your habit: \(habit.name)"
+        content.body = habit.name
         content.sound = .default
         
         let components = Calendar.current.dateComponents([.hour, .minute], from: notificationTime)
