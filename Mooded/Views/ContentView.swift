@@ -182,6 +182,11 @@ struct HabitRow: View {
     @State private var isPressed = false
     @State private var animationAmount: CGFloat = 1.0
     
+    // Helper function to check if habit is completed today
+    private func isCompletedToday(habitId: UUID) -> Bool {
+        return habitStore.isHabitCompleted(habitId: habitId, date: Date())
+    }
+    
     var body: some View {
         HStack {
             Text(habit.name)
@@ -208,11 +213,13 @@ struct HabitRow: View {
                 }
             }) {
                 ZStack {
+                    let isCompleted = isCompletedToday(habitId: habit.id)
+                    
                     Circle()
-                        .fill(habitStore.isHabitCompleted(habitId: habit.id) ? Color.green : Color.gray.opacity(0.2))
+                        .fill(isCompleted ? Color.green : Color.gray.opacity(0.2))
                         .frame(width: 32, height: 32)
                     
-                    if habitStore.isHabitCompleted(habitId: habit.id) {
+                    if isCompleted {
                         Image(systemName: "checkmark")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white)
@@ -222,7 +229,7 @@ struct HabitRow: View {
                 .scaleEffect(animationAmount)
                 .overlay(
                     Circle()
-                        .stroke(habitStore.isHabitCompleted(habitId: habit.id) ? Color.green : Color.clear, lineWidth: 2)
+                        .stroke(isCompletedToday(habitId: habit.id) ? Color.green : Color.clear, lineWidth: 2)
                         .scaleEffect(isPressed ? 1.2 : 1.0)
                         .opacity(isPressed ? 0.0 : 1.0)
                 )
